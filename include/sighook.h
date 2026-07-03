@@ -22,6 +22,8 @@ bool sg_inline(void *address, hook_cb_t hook);
 
 bool sg_detour(void *address, void *replace_call, void **origin_call);
 
+bool sg_unhook(void *address);
+
 #ifdef __cplusplus
 }
 #endif
