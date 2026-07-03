@@ -6,6 +6,7 @@
 #ifndef HORONI_SIGHOOK_H
 #define HORONI_SIGHOOK_H
 
+#include <signal.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
