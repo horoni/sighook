@@ -54,46 +54,47 @@ static inline void flush_cache(void *start, void *end) {
 }
 
 static void unified_trap_handler(int sig, siginfo_t *info, void *context) {
-  atomic_fetch_add_explicit(&g_trap_refs, 1, memory_order_acquire);
-  ucontext_t *uc = (ucontext_t *)context;
-  uint64_t pc = uc->uc_mcontext.pc;
-  uint32_t insn = *(uint32_t *)pc;
+    atomic_fetch_add_explicit(&g_trap_refs, 1, memory_order_acquire);
+    ucontext_t *uc = (ucontext_t *)context;
+    uint64_t pc = uc->uc_mcontext.pc;
+    uint32_t insn = *(uint32_t *)pc;
 
-  if (insn != BRK_FUNC_HOOK) {
-    if ((insn & 0xFFE0001F) != 0xD4200000) {
-      atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
-      return;
+    if (insn != BRK_FUNC_HOOK) {
+        if ((insn & 0xFFE0001F) != 0xD4200000) {
+            atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
+            return;
+        }
+        goto end;
     }
-    goto end;
-  }
 
-  for (int i = 0; i < MAX_HOOKS; i++) {
-    if (false == atomic_load_explicit(&g_hooks[i].active, memory_order_acquire))
-      continue;
-    if (g_hooks[i].target != (void *)pc)
-      continue;
+    for (int i = 0; i < MAX_HOOKS; i++) {
+        if (false == atomic_load_explicit(&g_hooks[i].active,
+                                          memory_order_acquire))
+            continue;
+        if (g_hooks[i].target != (void *)pc)
+            continue;
 
-    if (SG_HOOK_CTX == g_hooks[i].type) {
-      uc->uc_mcontext.pc = (uint64_t)g_hooks[i].trampoline;
-      ((hook_cb_t)g_hooks[i].hook)(uc);
-    } else if (SG_HOOK_DETOUR == g_hooks[i].type) {
-      uc->uc_mcontext.pc = (uint64_t)g_hooks[i].hook;
+        if (SG_HOOK_CTX == g_hooks[i].type) {
+            uc->uc_mcontext.pc = (uint64_t)g_hooks[i].trampoline;
+            ((hook_cb_t)g_hooks[i].hook)(uc);
+        } else if (SG_HOOK_DETOUR == g_hooks[i].type) {
+            uc->uc_mcontext.pc = (uint64_t)g_hooks[i].hook;
+        }
+        atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
+        return;
     }
-    atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
-    return;
-  }
 
 end:
-  atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
+    atomic_fetch_sub_explicit(&g_trap_refs, 1, memory_order_release);
 
-  if (g_old_trap.sa_flags & SA_SIGINFO) {
-    g_old_trap.sa_sigaction(sig, info, context);
-  } else if (g_old_trap.sa_handler == SIG_DFL) {
-    signal(sig, SIG_DFL);
-    raise(sig);
-  } else if (g_old_trap.sa_handler != SIG_IGN) {
-    g_old_trap.sa_handler(sig);
-  }
+    if (g_old_trap.sa_flags & SA_SIGINFO) {
+        g_old_trap.sa_sigaction(sig, info, context);
+    } else if (g_old_trap.sa_handler == SIG_DFL) {
+        signal(sig, SIG_DFL);
+        raise(sig);
+    } else if (g_old_trap.sa_handler != SIG_IGN) {
+        g_old_trap.sa_handler(sig);
+    }
 }
 
 bool sg_init(void) {
