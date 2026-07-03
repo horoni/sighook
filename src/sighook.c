@@ -101,6 +101,7 @@ bool sg_init(void) {
 }
 
 static inline bool sg_install(void *address, void *hook, void **origin, sg_type type) {
+    if (!address || !hook) return false;
     uint32_t orig_insn = *(uint32_t *)address;
 
     int idx = atomic_fetch_add_explicit(&g_tramp_idx, 1, memory_order_relaxed);
