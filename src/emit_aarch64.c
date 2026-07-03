@@ -24,7 +24,7 @@ void emit_abs_jmp(uint32_t *tramp_out, int *words, uint64_t target) {
 }
 
 /* relocate replaced instruction */
-int relocate_insn_aarch64(uint32_t insn, uint64_t pc, uint32_t *tramp_out) {
+int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out) {
     int words = 0;
 
     /* ADR, ADRP */
