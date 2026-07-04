@@ -19,11 +19,12 @@ set_property(TARGET sighook PROPERTY POSITION_INDEPENDENT_CODE ON)
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     enable_testing()
 
-    file(GLOB_RECURSE TEST_SRCS "tests/*.c" "tests/*.s")
-    
-    add_executable(sighook_test ${TEST_SRCS})
-    
-    target_link_libraries(sighook_test PRIVATE sighook)
+    file(GLOB TEST_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_*.c")
 
-    add_test(NAME run_sighook_tests COMMAND sighook_test)
+    foreach(test_source ${TEST_SRCS})
+        get_filename_component(test_name ${test_source} NAME_WE)
+        add_executable(${test_name} ${test_source})
+        target_link_libraries(${test_name} PRIVATE sighook)
+        add_test(NAME ${test_name} COMMAND ${test_name})
+    endforeach()
 endif()

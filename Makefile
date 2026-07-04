@@ -1,8 +1,7 @@
-PHONY   := all test clean valgrind
+.PHONY   := all test clean valgrind
 
-PROJECT  := sighook
-LIB_NAME := lib$(PROJECT).a
-TEST_BIN := test_$(PROJECT)
+PROJECT   := sighook
+LIB_NAME  := lib$(PROJECT).a
 
 INC_DIR   := include
 SRC_DIR   := src
@@ -10,10 +9,10 @@ TEST_DIR  := tests
 OBJ_DIR   := obj
 
 LIB_SRCS  := $(shell find $(SRC_DIR) -name '*.c' -or -name '*.s')
-TEST_SRCS := $(shell find $(TEST_DIR) -name '*.c' -or -name '*.s')
-
 LIB_OBJS  := $(LIB_SRCS:%=$(OBJ_DIR)/%.o)
-TEST_OBJS := $(TEST_SRCS:%=$(OBJ_DIR)/%.o)
+
+TEST_SRCS := $(wildcard $(TEST_DIR)/test_*.c)
+TEST_BINS := $(patsubst $(TEST_DIR)/%.c,$(TEST_DIR)/%,$(TEST_SRCS))
 
 CC       := gcc
 AS       := as
@@ -26,15 +25,15 @@ RM    := rm -f
 RMF   := rm -rf
 RMDIR := rmdir
 
-all: $(LIB_NAME) $(TEST_BIN)
+all: $(LIB_NAME) $(TEST_BINS)
 
 $(LIB_NAME): $(LIB_OBJS)
 	@echo "[AR]\t$@"
 	@$(AR) rcs $@ $^
 
-$(TEST_BIN): $(TEST_OBJS) $(LIB_NAME)
+$(TEST_DIR)/test_%: $(OBJ_DIR)/$(TEST_DIR)/test_%.c.o $(LIB_NAME)
 	@echo "[LD]\t$@"
-	@$(CC) $(TEST_OBJS) -L. -l$(PROJECT) -o $@ $(LDFLAGS)
+	@$(CC) $^ -o $@ $(LDFLAGS)
 
 $(OBJ_DIR)/%.c.o: %.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
@@ -49,12 +48,18 @@ $(OBJ_DIR)/%.s.o: %.s | $(OBJ_DIR)
 $(OBJ_DIR):
 	@mkdir -p $@
 
-test: $(TEST_BIN)
-	@./$(TEST_BIN)
+test: $(TEST_BINS)
+	@for bin in $(TEST_BINS); do \
+		echo "Start $$bin..."; \
+		./$$bin || exit 1; \
+	done
 
 clean:
-	@$(RMF) $(OBJ_DIR) $(LIB_NAME) $(TEST_BIN)
+	@$(RMF) $(OBJ_DIR) $(LIB_NAME) $(TEST_BINS)
 
-valgrind: $(PROJECT)
-	@valgrind ./$(TEST_BIN)
+valgrind: $(TEST_BINS)
+	@for bin in $(TEST_BINS); do \
+		echo "Valgrind: $$bin"; \
+		valgrind --leak-check=full ./$$bin || exit 1; \
+	done
 
