@@ -116,7 +116,7 @@ bool sg_init(void) {
 }
 
 static inline bool sg_install(void *address, void *hook, void **origin, sg_type type) {
-    if (!address || !hook) return false;
+    if (!address || !hook || !g_tramp_pool) return false;
 
     int idx = atomic_fetch_add_explicit(&g_tramp_idx, 1, memory_order_relaxed);
     if (idx >= MAX_HOOKS) return false;
