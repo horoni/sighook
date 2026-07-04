@@ -44,14 +44,6 @@ static atomic_int       g_trap_refs = 0;
 
 static char      *g_tramp_pool = NULL;
 
-static inline void flush_cache(void *start, void *end) {
-    uint64_t addr = (uint64_t)start & ~0xF;
-    for (; addr < (uint64_t)end; addr += 16) {
-        __asm__ volatile("dc cvau, %0\n ic ivau, %0\n" :: "r"(addr) : "memory");
-    }
-    __asm__ volatile("dsb ish\n isb\n" ::: "memory");
-}
-
 static void unified_trap_handler(int sig, siginfo_t *info, void *context) {
     atomic_fetch_add_explicit(&g_trap_refs, 1, memory_order_acquire);
     ucontext_t *uc = (ucontext_t *)context;
