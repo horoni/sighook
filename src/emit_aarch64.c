@@ -19,6 +19,7 @@ static inline void emit_abs_jmp(uint32_t *tramp_out, int *words, uint64_t target
      * .quad target
      */
     tramp_out[(*words)++] = 0x58000050;
+    /* RET 0xD65F0200 can be used instead BR in cases where functions are guarded with bti c */
     tramp_out[(*words)++] = 0xD61F0200;
     emit_quad(tramp_out, words, target);
 }
