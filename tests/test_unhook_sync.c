@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <threads.h>
 #include <unistd.h>
 
 #include "sighook.h"
+
+#include "assert_.h"
 
 #define THREAD_COUNT 7
 #define ITERS 1000000
@@ -35,16 +36,16 @@ void test_hook_cb(ucontext_t *uc) {
 }
 
 int main(void) {
-    assert(sg_init() == true);
-    assert(sg_inline((void *)inc, (hook_cb_t)test_hook_cb) == true);
+    ASSERT(sg_init() == true);
+    ASSERT(sg_inline((void *)inc, (hook_cb_t)test_hook_cb) == true);
 
     thrd_t thrs[THREAD_COUNT];
     for (int i = 0; i < THREAD_COUNT; ++i)
-        assert(thrd_create(&thrs[i], worker, NULL) == thrd_success);
+        ASSERT(thrd_create(&thrs[i], worker, NULL) == thrd_success);
 
     usleep(100000);
     
-    assert(sg_unhook((void *)inc) == true);
+    ASSERT(sg_unhook((void *)inc) == true);
 
     for (int i = 0; i < THREAD_COUNT; ++i) {
         thrd_join(thrs[i], NULL);
@@ -53,9 +54,9 @@ int main(void) {
     int total_dummy = atomic_load(&dummy);
     int total_hits = atomic_load(&g_hook_hits);
 
-    assert(total_dummy == THREAD_COUNT * ITERS);
-    assert(total_hits > 0);
-    assert(total_hits < total_dummy);
+    ASSERT(total_dummy == THREAD_COUNT * ITERS);
+    ASSERT(total_hits > 0);
+    ASSERT(total_hits < total_dummy);
     
     printf("[OK] Unhook sync %d %d\n", total_dummy, total_hits);
     return 0;

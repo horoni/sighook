@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
-#include <assert.h>
 #include <stdio.h>
 
 #include "sighook.h"
+
+#include "assert_.h"
 
 volatile int g_hook_hits = 0;
 volatile int dummy = 0;
@@ -22,21 +23,21 @@ int add(int a, int b) {
 }
 
 int main(void) {
-    assert(sg_init() == true);
+    ASSERT(sg_init() == true);
 
-    sg_inline((void *)add, (hook_cb_t)test_hook_cb);
+    ASSERT(sg_inline((void *)add, (hook_cb_t)test_hook_cb) == true);
 
     dummy = add(1, 2);
     dummy = add(2, 2);
 
-    assert(g_hook_hits == 2);
+    ASSERT(g_hook_hits == 2);
 
-    sg_unhook((void *)add);
+    ASSERT(sg_unhook((void *)add) == true);
 
     dummy = add(3, 2);
     dummy = add(4, 2);
 
-    assert(g_hook_hits == 2);
+    ASSERT(g_hook_hits == 2);
 
     printf("[OK] Unhook\n");
 
