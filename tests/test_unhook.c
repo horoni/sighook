@@ -23,7 +23,7 @@ int add(int a, int b) {
 }
 
 int main(void) {
-    ASSERT(sg_init() == true);
+    ASSERT(sg_init(&sg_alloc_mmap) == true);
 
     ASSERT(sg_inline((void *)add, (hook_cb_t)test_hook_cb) == true);
 

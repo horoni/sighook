@@ -27,7 +27,7 @@ void test_hook_cb(ucontext_t *uc) {
 }
 
 int main(void) {
-    ASSERT(sg_init() == true);
+    ASSERT(sg_init(&sg_alloc_mmap) == true);
 
     /* Test ADR */
     g_hook_hits = 0;

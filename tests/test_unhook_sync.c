@@ -36,7 +36,7 @@ void test_hook_cb(ucontext_t *uc) {
 }
 
 int main(void) {
-    ASSERT(sg_init() == true);
+    ASSERT(sg_init(&sg_alloc_mmap) == true);
     ASSERT(sg_inline((void *)inc, (hook_cb_t)test_hook_cb) == true);
 
     thrd_t thrs[THREAD_COUNT];

@@ -13,9 +13,17 @@
 extern "C" {
 #endif
 
+typedef struct {
+    void *(*alloc)(size_t size);
+    void  (*free) (void *ptr, size_t size);
+} sg_allocator_t;
+
+extern const sg_allocator_t sg_alloc_mmap;
+extern const sg_allocator_t sg_alloc_codecave;
+
 typedef void (*hook_cb_t)(ucontext_t *ctx);
 
-bool sg_init(void);
+bool sg_init(const sg_allocator_t *alloc);
 
 /* hook called in signal context, you must use signal-safe functions */
 bool sg_inline(void *address, hook_cb_t hook);

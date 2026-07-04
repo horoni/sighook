@@ -42,7 +42,7 @@ static struct hook_entry g_hooks[MAX_HOOKS];
 static struct sigaction g_old_trap;
 static atomic_int       g_trap_refs = 0;
 
-static char      *g_tramp_pool = NULL;
+static const sg_allocator_t *g_alloc = NULL;
 
 static void unified_trap_handler(int sig, siginfo_t *info, void *context) {
     atomic_fetch_add_explicit(&g_trap_refs, 1, memory_order_acquire);
@@ -88,11 +88,8 @@ end:
     }
 }
 
-bool sg_init(void) {
-    g_tramp_pool = mmap(NULL, sysconf(_SC_PAGESIZE) * 4,
-                        PROT_READ | PROT_WRITE | PROT_EXEC,
-                        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (g_tramp_pool == MAP_FAILED) return false;
+bool sg_init(const sg_allocator_t *alloc) {
+    g_alloc = alloc ? alloc : &sg_alloc_mmap;
 
     syscall(__NR_membarrier, MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED, 0, 0);
 
@@ -107,7 +104,7 @@ bool sg_init(void) {
 }
 
 static inline bool sg_install(void *address, void *hook, void **origin, sg_type type) {
-    if (!address || !hook || !g_tramp_pool) return false;
+    if (!address || !hook || !g_alloc) return false;
 
     for (int i = 0; i < MAX_HOOKS; i++) {
         bool expected = false;
@@ -115,9 +112,14 @@ static inline bool sg_install(void *address, void *hook, void **origin, sg_type 
         if (atomic_compare_exchange_strong_explicit(
                 &g_hooks[i].in_use, &expected, true, memory_order_acq_rel,
                 memory_order_relaxed)) {
-          char *tramp = &g_tramp_pool[i * 64];
+          char *tramp = g_alloc->alloc(64);
+          if (!tramp) {
+              atomic_store_explicit(&g_hooks[i].in_use, false, memory_order_release);
+              return false;
+          }
           int bytes = emit_trampoline(address, tramp);
           if (bytes < 0) {
+              g_alloc->free(tramp, 64);
               atomic_store_explicit(&g_hooks[i].in_use, false, memory_order_release);
               return false;
           }
@@ -186,6 +188,7 @@ bool sg_unhook(void *address) {
             }
 
             atomic_store_explicit(&g_hooks[i].active, false, memory_order_release);
+            g_alloc->free(g_hooks[i].trampoline, 64);
             g_hooks[i].target = NULL;
             atomic_store_explicit(&g_hooks[i].in_use, false, memory_order_release);
 
