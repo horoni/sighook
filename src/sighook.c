@@ -42,7 +42,7 @@ static struct hook_entry g_hooks[MAX_HOOKS];
 static struct sigaction g_old_trap;
 static atomic_int       g_trap_refs = 0;
 
-static uint32_t  *g_tramp_pool = NULL;
+static char      *g_tramp_pool = NULL;
 static atomic_int g_tramp_idx = 0;
 
 static inline void flush_cache(void *start, void *end) {
@@ -117,24 +117,14 @@ bool sg_init(void) {
 
 static inline bool sg_install(void *address, void *hook, void **origin, sg_type type) {
     if (!address || !hook) return false;
-    uint32_t orig_insn = *(uint32_t *)address;
 
     int idx = atomic_fetch_add_explicit(&g_tramp_idx, 1, memory_order_relaxed);
     if (idx >= MAX_HOOKS) return false;
 
-    uint32_t *tramp = &g_tramp_pool[idx * 16];
-
-    int words = relocate_insn(orig_insn, (uint64_t)address, tramp);
-    if (words < 0) {
-        return false;
-    }
-
-    if (words % 2 != 0) tramp[words++] = 0xd503201f;
-
-    uint64_t dest = (uint64_t)address + 4;
-    emit_abs_jmp(tramp, &words, dest);
-
-    flush_cache(tramp, &tramp[words]);
+    char *tramp = &g_tramp_pool[idx * 64];
+    int bytes = emit_trampoline(address, tramp);
+    if (bytes < 0) return false;
+    flush_cache(tramp, &tramp[bytes]);
 
     if (origin) {
         *origin = tramp;
@@ -149,7 +139,7 @@ static inline bool sg_install(void *address, void *hook, void **origin, sg_type 
           g_hooks[i].target = address;
           g_hooks[i].hook = hook;
           g_hooks[i].trampoline = tramp;
-          g_hooks[i].insn = orig_insn;
+          g_hooks[i].insn = *(uint32_t *)address;
           g_hooks[i].type = type;
 
           atomic_thread_fence(memory_order_release);

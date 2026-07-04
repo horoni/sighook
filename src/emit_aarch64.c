@@ -7,13 +7,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void emit_quad(uint32_t *tramp_out, int *words, uint64_t quad) {
+static inline void emit_quad(uint32_t *tramp_out, int *words, uint64_t quad) {
     /* .quad quad*/
     memcpy(&tramp_out[(*words)], &quad, sizeof(quad));
     *words += 2;
 }
 
-void emit_abs_jmp(uint32_t *tramp_out, int *words, uint64_t target) {
+static inline void emit_abs_jmp(uint32_t *tramp_out, int *words, uint64_t target) {
     /* LDR X16, .+8
      * BR  X16
      * .quad target
@@ -24,7 +24,7 @@ void emit_abs_jmp(uint32_t *tramp_out, int *words, uint64_t target) {
 }
 
 /* relocate replaced instruction */
-int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out) {
+static inline int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out) {
     int words = 0;
 
     /* ADR, ADRP */
@@ -190,4 +190,19 @@ int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out) {
 
     tramp_out[words++] = insn;
     return words;
+}
+
+int emit_trampoline(void *address, void *tramp_out) {
+    uint32_t *tramp = (uint32_t *)tramp_out;
+    uint32_t  insn = *(uint32_t *)address;
+    uint64_t  pc = (uint64_t)address;
+
+    int words = relocate_insn(insn, pc, tramp);
+    if (words < 0) return -1;
+    if (words % 2) tramp[words++] = 0xd503201f;
+
+    uint64_t dest = pc + 4;
+    emit_abs_jmp(tramp, &words, dest);
+
+    return words * 4;
 }
