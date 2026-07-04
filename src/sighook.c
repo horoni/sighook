@@ -43,7 +43,6 @@ static struct sigaction g_old_trap;
 static atomic_int       g_trap_refs = 0;
 
 static char      *g_tramp_pool = NULL;
-static atomic_int g_tramp_idx = 0;
 
 static inline void flush_cache(void *start, void *end) {
     uint64_t addr = (uint64_t)start & ~0xF;
@@ -118,24 +117,24 @@ bool sg_init(void) {
 static inline bool sg_install(void *address, void *hook, void **origin, sg_type type) {
     if (!address || !hook || !g_tramp_pool) return false;
 
-    int idx = atomic_fetch_add_explicit(&g_tramp_idx, 1, memory_order_relaxed);
-    if (idx >= MAX_HOOKS) return false;
-
-    char *tramp = &g_tramp_pool[idx * 64];
-    int bytes = emit_trampoline(address, tramp);
-    if (bytes < 0) return false;
-    flush_cache(tramp, &tramp[bytes]);
-
-    if (origin) {
-        *origin = tramp;
-    }
-    
     for (int i = 0; i < MAX_HOOKS; i++) {
         bool expected = false;
 
         if (atomic_compare_exchange_strong_explicit(
                 &g_hooks[i].in_use, &expected, true, memory_order_acq_rel,
                 memory_order_relaxed)) {
+          char *tramp = &g_tramp_pool[i * 64];
+          int bytes = emit_trampoline(address, tramp);
+          if (bytes < 0) {
+              atomic_store_explicit(&g_hooks[i].in_use, false, memory_order_release);
+              return false;
+          }
+          flush_cache(tramp, &tramp[bytes]);
+
+          if (origin) {
+              *origin = tramp;
+          }
+
           g_hooks[i].target = address;
           g_hooks[i].hook = hook;
           g_hooks[i].trampoline = tramp;
