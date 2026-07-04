@@ -38,7 +38,7 @@ int main(void) {
 
     assert(g_hook_hits == 2);
 
-    printf("[OK] Unhook");
+    printf("[OK] Unhook\n");
 
     return 0;
 }
