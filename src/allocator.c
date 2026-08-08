@@ -4,8 +4,8 @@
 
 #include "sighook.h"
 
-#define POOL_SIZE sysconf(_SC_PAGESIZE) * 4
-#define ALIGN(x)      (((x) + 7) & ~7)
+#define POOL_SIZE     (sysconf(_SC_PAGESIZE) * 4)
+#define ALIGN(x)      (((x) + 15) & ~((size_t)15))
 #define VAL_BUSY(val) ((size_t)(val) & 1)
 #define VAL_MASK(val) ((size_t)(val) | 1)
 #define VAL_PURE(val) ((size_t)(val) & ~((size_t)1))
@@ -13,9 +13,9 @@
 static char *g_mmap_pool = NULL;
 static atomic_bool g_mmap_inited = false;
 
-typedef struct _block_info {
+typedef struct block_info {
     size_t size;
-    struct _block_info *prev, *next;
+    struct block_info *prev, *next;
 } block_info;
 
 void *mmap_alloc(size_t size) {
@@ -31,10 +31,12 @@ void *mmap_alloc(size_t size) {
         tmp_block = (block_info *)g_mmap_pool;
         tmp_block->prev = tmp_block->next = NULL;
         tmp_block->size = POOL_SIZE - sizeof(block_info);
-        free_block = tmp_block;
 
         atomic_store(&g_mmap_inited, true);
     }
+
+    if(!size) size = 1;
+    size = ALIGN(size);
 
     tmp_block = (block_info *)g_mmap_pool;
     while(tmp_block && !free_block) {
@@ -46,12 +48,11 @@ void *mmap_alloc(size_t size) {
     if(!free_block)
         return NULL;
 
-    size = ALIGN(size);
     remain_size = free_block->size;
-    free_block->size = VAL_MASK(size);
 
     /* Create next block_info */
     if(remain_size >= size + sizeof(block_info) + ALIGN(1)) {
+        free_block->size = VAL_MASK(size);
         tmp_block = (block_info *)((size_t)free_block + sizeof(block_info) + size);
         tmp_block->size = remain_size - size - sizeof(block_info);
         tmp_block->next = free_block->next;
@@ -60,6 +61,9 @@ void *mmap_alloc(size_t size) {
         if (free_block->next)
             free_block->next->prev = tmp_block;
         free_block->next = tmp_block;
+    }
+    else {
+        free_block->size = VAL_MASK(remain_size);
     }
 
     return free_block + 1;
@@ -80,10 +84,9 @@ void mmap_free(void *address, size_t size) {
         if(block->next && !VAL_BUSY(block->next->size)) {
             tmp_block = block->next;
             block->size += VAL_PURE(tmp_block->size) + sizeof(block_info);
-            if(tmp_block->next) {
+            block->next = tmp_block->next;
+            if(tmp_block->next)
                 tmp_block->next->prev = block;
-                block->next = tmp_block->next;
-            }
         }
         /* Merge with previous block */
         if(block->prev && !VAL_BUSY(block->prev->size)) {
