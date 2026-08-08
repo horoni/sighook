@@ -38,7 +38,7 @@ void *mmap_alloc(size_t size) {
 
     tmp_block = (block_info *)g_mmap_pool;
     while(tmp_block && !free_block) {
-        if(!VAL_BUSY(tmp_block->size))
+        if(!VAL_BUSY(tmp_block->size) && VAL_PURE(tmp_block->size) >= size)
             free_block = tmp_block;
         tmp_block = tmp_block->next;
     }
@@ -51,13 +51,14 @@ void *mmap_alloc(size_t size) {
     free_block->size = VAL_MASK(size);
 
     /* Create next block_info */
-    if(remain_size >= size + sizeof(block_info) + 8 &&
-       free_block->next == NULL) {
-        tmp_block = (block_info *)((size_t)free_block + size);
+    if(remain_size >= size + sizeof(block_info) + ALIGN(1)) {
+        tmp_block = (block_info *)((size_t)free_block + sizeof(block_info) + size);
+        tmp_block->size = remain_size - size - sizeof(block_info);
+        tmp_block->next = free_block->next;
         tmp_block->prev = free_block;
-        tmp_block->next = NULL;
-        tmp_block->size = remain_size - sizeof(block_info) * 2;
 
+        if (free_block->next)
+            free_block->next->prev = tmp_block;
         free_block->next = tmp_block;
     }
 
@@ -91,6 +92,9 @@ void mmap_free(void *address, size_t size) {
             if(block->next) {
                 block->next->prev = tmp_block;
                 tmp_block->next = block->next;
+            }
+            else {
+                tmp_block->next = NULL;
             }
         }
     }
