@@ -116,7 +116,7 @@ static inline int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out)
              *  4: LDR   X16, .+8
              *  8: BR    X16
              * 12: .quad target
-             * 20: .quad lr 
+             * 20: .quad lr
              */
             tramp_out[words++] = 0x580000BE;
             emit_abs_jmp(tramp_out, &words, target);
@@ -175,7 +175,7 @@ static inline int relocate_insn(uint32_t insn, uint64_t pc, uint32_t *tramp_out)
         uint64_t imm14 = (insn >> 5) & 0x3FFF;
         int64_t offset = ((int64_t)(imm14 << 50)) >> 48;
         uint64_t target = pc + offset;
-        
+
         uint32_t inv_insn = insn ^ (1 << 24);
         inv_insn = (inv_insn & ~0x0007FFE0) | (5 << 5);
 

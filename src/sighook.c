@@ -149,7 +149,7 @@ static inline bool sg_install(void *address, void *hook, void **origin, sg_type 
           syscall(__NR_membarrier, MEMBARRIER_CMD_PRIVATE_EXPEDITED, 0, 0);
 
           atomic_store_explicit(&g_hooks[i].active, true, memory_order_release);
-          
+
           return true;
         }
     }

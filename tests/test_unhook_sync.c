@@ -45,7 +45,7 @@ int main(void) {
         ASSERT(thrd_create(&thrs[i], worker, NULL) == thrd_success);
 
     usleep(100000);
-    
+
     ASSERT(sg_unhook((void *)inc) == true);
 
     for (int i = 0; i < THREAD_COUNT; ++i) {
@@ -58,7 +58,7 @@ int main(void) {
     ASSERT(total_dummy == THREAD_COUNT * ITERS);
     ASSERT(total_hits > 0);
     ASSERT(total_hits < total_dummy);
-    
+
     printf("[OK] Unhook sync %d %d\n", total_dummy, total_hits);
     return 0;
 }
