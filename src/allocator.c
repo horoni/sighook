@@ -9,15 +9,12 @@
 #define VAL_BUSY(val) ((size_t)(val) & 1)
 #define VAL_MASK(val) ((size_t)(val) | 1)
 #define VAL_PURE(val) ((size_t)(val) & ~((size_t)1))
-#define PTR_BUSY(ptr) VAL_BUSY((ptr))
-#define PTR_MASK(ptr) (block_info *)VAL_MASK((ptr))
-#define PTR_PURE(ptr) (block_info *)VAL_PURE((ptr))
 
 static char *g_mmap_pool = NULL;
 static atomic_bool g_mmap_inited = false;
 
 typedef struct _block_info {
-    int size;
+    size_t size;
     struct _block_info *prev, *next;
 } block_info;
 
@@ -57,7 +54,7 @@ void *mmap_alloc(size_t size) {
     if(remain_size >= size + sizeof(block_info) + 8 &&
        free_block->next == NULL) {
         tmp_block = (block_info *)((size_t)free_block + size);
-        tmp_block->prev = PTR_MASK(free_block);
+        tmp_block->prev = free_block;
         tmp_block->next = NULL;
         tmp_block->size = remain_size - sizeof(block_info) * 2;
 
@@ -68,9 +65,34 @@ void *mmap_alloc(size_t size) {
 }
 
 void mmap_free(void *address, size_t size) {
+    block_info *block, *tmp_block;
+
     (void)size;
+
     if (address >= (void *)g_mmap_pool && address <= (void *)(g_mmap_pool + POOL_SIZE)) {
-        /* TODO */
+        block = (block_info *)address - 1;
+
+        /* Reset flag */
+        block->size = VAL_PURE(block->size);
+
+        /* Merge with next block */
+        if(block->next && !VAL_BUSY(block->next->size)) {
+            tmp_block = block->next;
+            block->size += VAL_PURE(tmp_block->size) + sizeof(block_info);
+            if(tmp_block->next) {
+                tmp_block->next->prev = block;
+                block->next = tmp_block->next;
+            }
+        }
+        /* Merge with previous block */
+        if(block->prev && !VAL_BUSY(block->prev->size)) {
+            tmp_block = block->prev;
+            tmp_block->size += VAL_PURE(block->size) + sizeof(block_info);
+            if(block->next) {
+                block->next->prev = tmp_block;
+                tmp_block->next = block->next;
+            }
+        }
     }
 }
 
