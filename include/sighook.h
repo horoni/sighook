@@ -6,8 +6,9 @@
 #ifndef HORONI_SIGHOOK_H
 #define HORONI_SIGHOOK_H
 
-#include <signal.h>
+#include <sys/ucontext.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#define _BSD_SOURCE
 #include <stdatomic.h>
 #include <stdio.h>
 #include <threads.h>
